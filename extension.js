@@ -29,10 +29,7 @@ const TrueInvertWindowEffect = new GObject.registerClass({
 				
 				float shift = white_bias + c.a - min(c.r, min(c.g, c.b)) - max(c.r, max(c.g, c.b));
 				
-				c = vec4((shift + c.r) / m, 
-						(shift + c.g) / m, 
-						(shift + c.b) / m, 
-						c.a);
+				c = vec4( c.r , c.g*0.82854786 , c.b*0.64816570 , c.a);
 
 				cogl_color_out = c;
 			}
@@ -51,24 +48,35 @@ const TrueInvertWindowEffect = new GObject.registerClass({
 	}
 });
 
+function onWindowCreated(display, window) {
+	// Handle window creation
+	log("Window created: " + window.get_title());
+}
+
+function onWindowDestroyed(display, window) {
+	// Handle window destruction
+	log("Window destroyed: " + window.get_title());
+}
+
 function InvertWindow() {
 	this.settings = ExtensionUtils.getSettings(Self.metadata["settings-schema"]);
+	this.monitor = -1
 }
 
 InvertWindow.prototype = {
+	toggle_effect_shortcut: function () {
+		const focusedWindow = global.display.get_focus_window();
+		this.monitor = focusedWindow.get_monitor();
+		this.toggle_effect()
+	},
+
 	toggle_effect: function () {
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();
-			if (meta_window.has_focus()) {
-				if (actor.get_effect('invert-color')) {
-					actor.remove_effect_by_name('invert-color');
-					delete meta_window._invert_window_tag;
-				}
-				else {
-					let effect = new TrueInvertWindowEffect();
-					actor.add_effect_with_name('invert-color', effect);
-					meta_window._invert_window_tag = true;
-				}
+			let effect = new TrueInvertWindowEffect();
+			if(!actor.get_effect('invert-color') && meta_window.get_monitor() === this.monitor) {
+				actor.add_effect_with_name('invert-color', effect);
+				meta_window._invert_window_tag = true;
 			}
 		}, this);
 	},
@@ -79,8 +87,10 @@ InvertWindow.prototype = {
 			this.settings,
 			Meta.KeyBindingFlags.NONE,
 			Shell.ActionMode.NORMAL,
-			this.toggle_effect
+			this.toggle_effect_shortcut
 		);
+
+		global.display.connect('window-created', this.toggle_effect);
 
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();
@@ -93,6 +103,7 @@ InvertWindow.prototype = {
 
 	disable: function () {
 		Main.wm.removeKeybinding(SHORTCUT);
+		global.display.disconnect('window-created', onWindowDestroyed);
 
 		global.get_window_actors().forEach(function (actor) {
 			actor.remove_effect_by_name('invert-color');

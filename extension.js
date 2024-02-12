@@ -92,7 +92,8 @@ InvertWindow.prototype = {
 	toggle_effect: function () {
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();
-			if(this.level === -1) {
+			if(this.level === -1 || meta_window.get_monitor() !== this.monitor) {
+				actor.remove_effect_by_name(`invert-color-0`);
 				actor.remove_effect_by_name(`invert-color-1`);
 				actor.remove_effect_by_name(`invert-color-2`);
 				delete meta_window._invert_window_tag;
@@ -137,6 +138,8 @@ InvertWindow.prototype = {
 		);
 
 		global.display.connect('window-created', this.toggle_effect);
+		global.display.connect('window-entered-monitor', this.toggle_effect);
+		global.display.connect('window-left-monitor', this.toggle_effect);
 
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();

@@ -4,6 +4,9 @@ GNOME shell extension for night shift on usb monitor. To start it press Super + 
 
 https://extensions.gnome.org/extension/3530/true-color-invert/
 
+## How to use it
+Open window at usb monitor and press `Super + I` to add night filter. Press `Super + I` multiple times to remove night filter.
+
 ## Keyboard Shortcut
 
 `Super + I`

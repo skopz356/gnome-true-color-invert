@@ -9,8 +9,35 @@ const Self = ExtensionUtils.getCurrentExtension();
 
 const SHORTCUT = 'invert-window-shortcut';
 
+const levels = [
+	{
+		"r": 1.00000000,
+		"g": 0.54360078,
+		"b": 0.08679949,
+	},
+	{
+		"r": 1.00000000,
+		"g": 0.82854786,
+		"b": 0.64816570,
+	}, // 4K
+	{
+		"r": 1.00000000,
+		"g": 1.00000000,
+		"b": 1.00000000,
+	}, // 6.5K
+]
+
 const TrueInvertWindowEffect = new GObject.registerClass({
 	Name: 'TrueInvertWindowEffect',
+	Properties: {
+		'level': GObject.ParamSpec.double(
+			'level',
+			'Number Property',
+			'A property holding a JavaScript Number',
+			GObject.ParamFlags.READWRITE,
+			Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER,
+			0),
+	},
 }, class TrueInvertWindowEffect extends Clutter.ShaderEffect {
 	vfunc_get_static_shader_source() {
 		return `
@@ -29,7 +56,7 @@ const TrueInvertWindowEffect = new GObject.registerClass({
 				
 				float shift = white_bias + c.a - min(c.r, min(c.g, c.b)) - max(c.r, max(c.g, c.b));
 				
-				c = vec4( c.r , c.g*0.82854786 , c.b*0.64816570 , c.a);
+				c = vec4( c.r*${levels[this.level]["r"]}, c.g*${levels[this.level]["g"]}, c.b*${levels[this.level]["b"]} , c.a);
 
 				cogl_color_out = c;
 			}
@@ -48,10 +75,7 @@ const TrueInvertWindowEffect = new GObject.registerClass({
 	}
 });
 
-function onWindowCreated(display, window) {
-	// Handle window creation
-	log("Window created: " + window.get_title());
-}
+let invert_window;
 
 function onWindowDestroyed(display, window) {
 	// Handle window destruction
@@ -61,27 +85,49 @@ function onWindowDestroyed(display, window) {
 function InvertWindow() {
 	this.settings = ExtensionUtils.getSettings(Self.metadata["settings-schema"]);
 	this.monitor = -1
+	this.level = 0
 }
 
 InvertWindow.prototype = {
-	toggle_effect_shortcut: function () {
-		const focusedWindow = global.display.get_focus_window();
-		this.monitor = focusedWindow.get_monitor();
-		this.toggle_effect()
-	},
-
 	toggle_effect: function () {
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();
-			let effect = new TrueInvertWindowEffect();
-			if(!actor.get_effect('invert-color') && meta_window.get_monitor() === this.monitor) {
-				actor.add_effect_with_name('invert-color', effect);
-				meta_window._invert_window_tag = true;
+			if(this.level === -1) {
+				actor.remove_effect_by_name(`invert-color-1`);
+				actor.remove_effect_by_name(`invert-color-2`);
+				delete meta_window._invert_window_tag;
+			}else {
+				let effect = new TrueInvertWindowEffect({
+					level: this.level
+				});
+				if(actor.get_effect(`invert-color-${this.level - 1}`)) {
+					actor.remove_effect_by_name(`invert-color-${this.level - 1}`)
+				}
+				if(!actor.get_effect(`invert-color-${this.level}`) && meta_window.get_monitor() === this.monitor) {
+					actor.add_effect_with_name(`invert-color-${this.level}`, effect);
+					meta_window._invert_window_tag = true;
+				}
 			}
 		}, this);
 	},
+	toggle_effect_shortcut: function () {
+		if(this.level === undefined) {
+			this.level = -1
+		}
+		const focusedWindow = global.display.get_focus_window();
+		this.monitor = focusedWindow.get_monitor();
+		if(this.level === 2) {
+			this.level = -1;
+		}else {
+			this.level += 1;
+		}
+		invert_window.level = this.level
+		invert_window.monitor = this.monitor
+		invert_window.toggle_effect()
+	},
 
 	enable: function () {
+		this.level = -1
 		Main.wm.addKeybinding(
 			SHORTCUT,
 			this.settings,
@@ -95,8 +141,10 @@ InvertWindow.prototype = {
 		global.get_window_actors().forEach(function (actor) {
 			let meta_window = actor.get_meta_window();
 			if (meta_window.hasOwnProperty('_invert_window_tag')) {
-				let effect = new TrueInvertWindowEffect();
-				actor.add_effect_with_name('invert-color', effect);
+				let effect = new TrueInvertWindowEffect({
+					level: this.level
+				});
+				actor.add_effect_with_name(`invert-color-${this.level}`, effect);
 			}
 		}, this);
 	},
@@ -110,8 +158,6 @@ InvertWindow.prototype = {
 		}, this);
 	}
 };
-
-let invert_window;
 
 function init() {
 }

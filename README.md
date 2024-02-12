@@ -1,8 +1,6 @@
 # True Color Invert
 
-GNOME shell extension for inverting window colors in hue preserving manner. Effectively a manual dark theme for GNOME windows.
-
-Available on the GNOME Extensions website here:
+GNOME shell extension for night shift on usb monitor. To start it press Super + I.
 
 https://extensions.gnome.org/extension/3530/true-color-invert/
 
@@ -33,3 +31,7 @@ To make the ZIP for the GNOME Shell Extension website:
 
 1. `sh build.sh`
 2. Tag `main` at that time with a release tag according to the revisions made.
+
+
+## Installing 
+1. `gnome-extensions install -f ./true-color-invert@jackkenney.zip`
